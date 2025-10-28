@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -30,25 +31,72 @@ func copyToClipboard(text string) error {
 }
 
 func copyToClipboardLinux(text string) error {
+	// Check environment first
+	display := os.Getenv("DISPLAY")
+	waylandDisplay := os.Getenv("WAYLAND_DISPLAY")
+	sshClient := os.Getenv("SSH_CLIENT")
+	
 	// Try different clipboard tools in order of preference
-	tools := [][]string{
-		{"xclip", "-selection", "clipboard"},
-		{"xsel", "--clipboard", "--input"},
-		{"wl-copy"}, // Wayland
+	tools := []struct {
+		name string
+		cmd  []string
+		desc string
+	}{
+		{"xclip", []string{"xclip", "-selection", "clipboard"}, "X11 clipboard"},
+		{"xsel", []string{"xsel", "--clipboard", "--input"}, "X11 selection"},
+		{"wl-copy", []string{"wl-copy"}, "Wayland clipboard"},
 	}
 
+	var lastErr error
+	var detailedErrors []string
+	availableTools := []string{}
+	
 	for _, tool := range tools {
-		if _, err := exec.LookPath(tool[0]); err == nil {
-			cmd := exec.Command(tool[0], tool[1:]...)
+		if _, err := exec.LookPath(tool.cmd[0]); err == nil {
+			availableTools = append(availableTools, tool.name)
+			cmd := exec.Command(tool.cmd[0], tool.cmd[1:]...)
 			cmd.Stdin = strings.NewReader(text)
-			if err := cmd.Run(); err == nil {
+			
+			// Capture both stdout and stderr for debugging
+			output, err := cmd.CombinedOutput()
+			if err == nil {
 				return nil
+			} else {
+				detailedErrors = append(detailedErrors, fmt.Sprintf("%s: %v (output: %s)", tool.name, err, string(output)))
+				lastErr = err
 			}
 		}
 	}
 
-	// If no clipboard tool is available, show instructions
-	return fmt.Errorf("no clipboard tool found. Install xclip, xsel, or wl-copy")
+	// Build comprehensive error message
+	var errorParts []string
+	
+	if len(availableTools) == 0 {
+		return fmt.Errorf("no clipboard tools found. Install: xclip, xsel, or wl-copy")
+	}
+	
+	errorParts = append(errorParts, fmt.Sprintf("clipboard failed with tools: %s", strings.Join(availableTools, ", ")))
+	
+	// Add environment information
+	if sshClient != "" {
+		errorParts = append(errorParts, "SSH session detected")
+		if display == "" {
+			errorParts = append(errorParts, "no DISPLAY variable (try: ssh -X)")
+		} else {
+			errorParts = append(errorParts, fmt.Sprintf("DISPLAY=%s", display))
+		}
+	}
+	
+	if display == "" && waylandDisplay == "" {
+		errorParts = append(errorParts, "no display server available")
+	}
+	
+	// Add detailed error information
+	if len(detailedErrors) > 0 {
+		errorParts = append(errorParts, fmt.Sprintf("errors: %s", strings.Join(detailedErrors, "; ")))
+	}
+	
+	return fmt.Errorf("%s", strings.Join(errorParts, ", "))
 }
 
 func copyToClipboardMacOS(text string) error {

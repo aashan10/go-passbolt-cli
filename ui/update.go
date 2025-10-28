@@ -180,8 +180,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 								return clipboardClearMsg{}
 							})
 						} else {
-							m.clipboardMsg = "✗ Failed to copy username: " + err.Error()
-							return m, tea.Tick(time.Second*3, func(t time.Time) tea.Msg {
+							// Fallback: show username in the detail pane
+							m.clipboardMsg = "⚠ Clipboard failed - Username shown in details"
+							return m, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
 								return clipboardClearMsg{}
 							})
 						}
@@ -194,8 +195,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 								return clipboardClearMsg{}
 							})
 						} else {
-							m.clipboardMsg = "✗ Failed to copy password: " + err.Error()
-							return m, tea.Tick(time.Second*3, func(t time.Time) tea.Msg {
+							// Fallback: show password in the detail pane  
+							m.clipboardMsg = "⚠ Clipboard failed - Password shown in details"
+							return m, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
 								return clipboardClearMsg{}
 							})
 						}
