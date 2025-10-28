@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -138,7 +139,11 @@ Press ? again to close this help.`
 	// Build status bar
 	var statusBar string
 	if m.clipboardMsg != "" {
-		statusBar = ClipboardStyle.Render(m.clipboardMsg)
+		if strings.HasPrefix(m.clipboardMsg, "✓") {
+			statusBar = ClipboardStyle.Render(m.clipboardMsg)
+		} else {
+			statusBar = ErrorStyle.Render(m.clipboardMsg)
+		}
 	} else if m.filtering {
 		statusBar = StatusStyle.Render("Enter: apply filter, Esc: cancel")
 	} else if m.loading {

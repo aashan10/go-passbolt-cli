@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/passbolt/go-passbolt-cli/util"
 	"github.com/passbolt/go-passbolt/api"
@@ -175,18 +174,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.filterText = ""
 				case "u":
 					if len(m.filtered) > 0 && m.filtered[m.selected].Loaded {
-						if err := clipboard.WriteAll(m.filtered[m.selected].Username); err == nil {
+						if err := copyToClipboard(m.filtered[m.selected].Username); err == nil {
 							m.clipboardMsg = "✓ Username copied to clipboard!"
 							return m, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
+								return clipboardClearMsg{}
+							})
+						} else {
+							m.clipboardMsg = "✗ Failed to copy username: " + err.Error()
+							return m, tea.Tick(time.Second*3, func(t time.Time) tea.Msg {
 								return clipboardClearMsg{}
 							})
 						}
 					}
 				case "p":
 					if len(m.filtered) > 0 && m.filtered[m.selected].Loaded {
-						if err := clipboard.WriteAll(m.filtered[m.selected].Password); err == nil {
+						if err := copyToClipboard(m.filtered[m.selected].Password); err == nil {
 							m.clipboardMsg = "✓ Password copied to clipboard!"
 							return m, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
+								return clipboardClearMsg{}
+							})
+						} else {
+							m.clipboardMsg = "✗ Failed to copy password: " + err.Error()
+							return m, tea.Tick(time.Second*3, func(t time.Time) tea.Msg {
 								return clipboardClearMsg{}
 							})
 						}
