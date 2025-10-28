@@ -47,7 +47,6 @@ func copyToClipboardLinux(text string) error {
 		{"wl-copy", []string{"wl-copy"}, "Wayland clipboard"},
 	}
 
-	var lastErr error
 	var detailedErrors []string
 	availableTools := []string{}
 	
@@ -63,7 +62,6 @@ func copyToClipboardLinux(text string) error {
 				return nil
 			} else {
 				detailedErrors = append(detailedErrors, fmt.Sprintf("%s: %v (output: %s)", tool.name, err, string(output)))
-				lastErr = err
 			}
 		}
 	}
