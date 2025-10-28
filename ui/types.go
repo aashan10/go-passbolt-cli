@@ -19,23 +19,25 @@ type Resource struct {
 }
 
 type Model struct {
-	resources     []Resource
-	filtered      []Resource
-	selected      int
-	filtering     bool
-	filterText    string
-	width         int
-	height        int
-	leftPaneWidth int
-	viewportTop   int
-	viewportSize  int
-	err           error
-	loading       bool
-	loadingDetail bool
-	showHelp      bool
-	clipboardMsg  string
-	client        *api.Client
-	ctx           context.Context
+	resources      []Resource
+	filtered       []Resource
+	selected       int
+	filtering      bool
+	filterText     string
+	width          int
+	height         int
+	leftPaneWidth  int
+	viewportTop    int
+	viewportSize   int
+	err            error
+	loading        bool
+	loadingDetail  bool
+	showHelp       bool
+	clipboardMsg   string
+	showPassword   bool
+	showUsername   bool
+	client         *api.Client
+	ctx            context.Context
 }
 
 type resourcesLoadedMsg []Resource

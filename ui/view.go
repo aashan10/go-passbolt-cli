@@ -117,10 +117,22 @@ Press ? again to close this help.`
 	if len(m.filtered) > 0 && m.selected < len(m.filtered) && !m.loading {
 		selected := m.filtered[m.selected]
 		if selected.Loaded {
-			rightPaneContent = fmt.Sprintf("Name: %s\n\nUsername: %s\n\nURI: %s\n\nDescription: %s",
+			// Build details with conditional password/username display
+			username := selected.Username
+			password := "***hidden***"
+			
+			if m.showUsername {
+				username = fmt.Sprintf("%s (VISIBLE - clipboard failed)", selected.Username)
+			}
+			if m.showPassword {
+				password = fmt.Sprintf("%s (VISIBLE - clipboard failed)", selected.Password)
+			}
+			
+			rightPaneContent = fmt.Sprintf("Name: %s\n\nUsername: %s\n\nURI: %s\n\nPassword: %s\n\nDescription: %s",
 				selected.Name,
-				selected.Username,
+				username,
 				selected.URI,
+				password,
 				selected.Description)
 		} else if m.loadingDetail {
 			rightPaneContent = "Loading details..."

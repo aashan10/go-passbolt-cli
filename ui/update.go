@@ -176,13 +176,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if len(m.filtered) > 0 && m.filtered[m.selected].Loaded {
 						if err := copyToClipboard(m.filtered[m.selected].Username); err == nil {
 							m.clipboardMsg = "✓ Username copied to clipboard!"
+							m.showUsername = false
 							return m, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
 								return clipboardClearMsg{}
 							})
 						} else {
 							// Fallback: show username in the detail pane
+							m.showUsername = true
 							m.clipboardMsg = "⚠ Clipboard failed - Username shown in details"
-							return m, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
+							return m, tea.Tick(time.Second*3, func(t time.Time) tea.Msg {
 								return clipboardClearMsg{}
 							})
 						}
@@ -191,13 +193,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if len(m.filtered) > 0 && m.filtered[m.selected].Loaded {
 						if err := copyToClipboard(m.filtered[m.selected].Password); err == nil {
 							m.clipboardMsg = "✓ Password copied to clipboard!"
+							m.showPassword = false
 							return m, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
 								return clipboardClearMsg{}
 							})
 						} else {
 							// Fallback: show password in the detail pane  
+							m.showPassword = true
 							m.clipboardMsg = "⚠ Clipboard failed - Password shown in details"
-							return m, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
+							return m, tea.Tick(time.Second*3, func(t time.Time) tea.Msg {
 								return clipboardClearMsg{}
 							})
 						}
