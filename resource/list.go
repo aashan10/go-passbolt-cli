@@ -19,16 +19,22 @@ import (
 	"github.com/spf13/viper"
 )
 
-// decryptedResource holds the result of decrypting a single resource
-type decryptedResource struct {
-	index       int
-	resource    api.Resource
-	name        string
-	username    string
-	uri         string
-	password    string
-	description string
-	err         error
+// DecryptedResource holds the result of decrypting a single resource.
+type DecryptedResource struct {
+	Index       int
+	Resource    api.Resource
+	Name        string
+	Username    string
+	URI         string
+	Password    string
+	Description string
+	Err         error
+}
+
+// DecryptResourcesParallel decrypts resource metadata (and optionally secrets) in parallel.
+// Exported for use by the TUI package.
+func DecryptResourcesParallel(ctx context.Context, client *api.Client, resources []api.Resource, needSecrets bool) ([]DecryptedResource, error) {
+	return decryptResourcesParallel(ctx, client, resources, needSecrets)
 }
 
 var defaultTableColumns = []string{"ID", "FolderParentID", "Name", "Username", "URI"}
@@ -129,7 +135,7 @@ func ResourceList(cmd *cobra.Command, args []string) error {
 	return printTableResources(decrypted, config.columns)
 }
 
-func decryptResourcesParallel(ctx context.Context, client *api.Client, resources []api.Resource, needSecrets bool) ([]decryptedResource, error) {
+func decryptResourcesParallel(ctx context.Context, client *api.Client, resources []api.Resource, needSecrets bool) ([]DecryptedResource, error) {
 	// Use parallel decryption with worker pool
 	numWorkers := int(viper.GetUint("workers"))
 
@@ -148,14 +154,14 @@ func decryptResourcesParallel(ctx context.Context, client *api.Client, resources
 	}
 
 	if len(validResources) == 0 {
-		return []decryptedResource{}, nil
+		return []DecryptedResource{}, nil
 	}
 
 	// Channel for work items and results
 	// Note: Session keys are pre-fetched during Login() when the server supports v5 metadata,
 	// so no additional prefetching is needed here.
 	jobs := make(chan int, len(validResources))
-	results := make(chan decryptedResource, len(validResources))
+	results := make(chan DecryptedResource, len(validResources))
 
 	// Start workers
 	var wg sync.WaitGroup
@@ -169,7 +175,7 @@ func decryptResourcesParallel(ctx context.Context, client *api.Client, resources
 				// Lookup resource type from cache (single API call for all types)
 				rType, err := client.GetResourceTypeCached(ctx, resource.ResourceTypeID)
 				if err != nil {
-					results <- decryptedResource{index: idx, err: fmt.Errorf("Get ResourceType: %w", err)}
+					results <- DecryptedResource{Index: idx, Err: fmt.Errorf("Get ResourceType: %w", err)}
 					continue
 				}
 
@@ -178,14 +184,14 @@ func decryptResourcesParallel(ctx context.Context, client *api.Client, resources
 				isV5 := strings.HasPrefix(rType.Slug, "v5-")
 				if !needSecrets && !isV5 {
 					// V4 resource - metadata is plaintext, no decryption needed
-					results <- decryptedResource{
-						index:       idx,
-						resource:    resource,
-						name:        resource.Name,
-						username:    resource.Username,
-						uri:         resource.URI,
-						password:    "",
-						description: resource.Description,
+					results <- DecryptedResource{
+						Index:       idx,
+						Resource:    resource,
+						Name:        resource.Name,
+						Username:    resource.Username,
+						URI:         resource.URI,
+						Password:    "",
+						Description: resource.Description,
 					}
 					continue
 				}
@@ -203,15 +209,15 @@ func decryptResourcesParallel(ctx context.Context, client *api.Client, resources
 					*rType,
 					needSecrets,
 				)
-				results <- decryptedResource{
-					index:       idx,
-					resource:    resource,
-					name:        name,
-					username:    username,
-					uri:         uri,
-					password:    pass,
-					description: desc,
-					err:         err,
+				results <- DecryptedResource{
+					Index:       idx,
+					Resource:    resource,
+					Name:        name,
+					Username:    username,
+					URI:         uri,
+					Password:    pass,
+					Description: desc,
+					Err:         err,
 				}
 			}
 		}()
@@ -230,20 +236,20 @@ func decryptResourcesParallel(ctx context.Context, client *api.Client, resources
 	}()
 
 	// Collect all results first
-	allResults := make([]decryptedResource, len(validResources))
+	allResults := make([]DecryptedResource, len(validResources))
 	for result := range results {
-		allResults[result.index] = result
+		allResults[result.Index] = result
 	}
 
 	// Process results, skipping unsupported types
-	decrypted := make([]decryptedResource, 0, len(validResources))
+	decrypted := make([]DecryptedResource, 0, len(validResources))
 	skippedTypes := make(map[string]int)
 
 	for _, result := range allResults {
-		if result.err != nil {
-			if errors.Is(result.err, helper.ErrUnsupportedResourceType) {
+		if result.Err != nil {
+			if errors.Is(result.Err, helper.ErrUnsupportedResourceType) {
 				// Get type slug for warning message
-				rType, _ := client.GetResourceTypeCached(ctx, result.resource.ResourceTypeID)
+				rType, _ := client.GetResourceTypeCached(ctx, result.Resource.ResourceTypeID)
 				typeSlug := "unknown"
 				if rType != nil {
 					typeSlug = rType.Slug
@@ -252,7 +258,7 @@ func decryptResourcesParallel(ctx context.Context, client *api.Client, resources
 				continue
 			}
 			// Other errors are still fatal
-			return nil, fmt.Errorf("Get Resource %w", result.err)
+			return nil, fmt.Errorf("Get Resource %w", result.Err)
 		}
 		decrypted = append(decrypted, result)
 	}
@@ -273,27 +279,27 @@ func decryptResourcesParallel(ctx context.Context, client *api.Client, resources
 }
 
 func printJsonResources(
-	decrypted []decryptedResource,
+	decrypted []DecryptedResource,
 	isColumnsChanged bool,
 	columns []string,
 ) error {
 	outputResources := make([]ResourceJsonOutput, len(decrypted))
 	for i, d := range decrypted {
-		name := d.name
-		username := d.username
-		uri := d.uri
-		pass := d.password
-		desc := d.description
+		name := d.Name
+		username := d.Username
+		uri := d.URI
+		pass := d.Password
+		desc := d.Description
 		outputResources[i] = ResourceJsonOutput{
-			ID:                &d.resource.ID,
-			FolderParentID:    &d.resource.FolderParentID,
+			ID:                &d.Resource.ID,
+			FolderParentID:    &d.Resource.FolderParentID,
 			Name:              &name,
 			Username:          &username,
 			URI:               &uri,
 			Password:          &pass,
 			Description:       &desc,
-			CreatedTimestamp:  &d.resource.Created.Time,
-			ModifiedTimestamp: &d.resource.Modified.Time,
+			CreatedTimestamp:  &d.Resource.Created.Time,
+			ModifiedTimestamp: &d.Resource.Modified.Time,
 		}
 	}
 
@@ -331,7 +337,7 @@ func printJsonResources(
 }
 
 func printTableResources(
-	decrypted []decryptedResource,
+	decrypted []DecryptedResource,
 	columns []string,
 ) error {
 	data := pterm.TableData{columns}
@@ -341,23 +347,23 @@ func printTableResources(
 		for i := range columns {
 			switch strings.ToLower(columns[i]) {
 			case "id":
-				entry[i] = d.resource.ID
+				entry[i] = d.Resource.ID
 			case "folderparentid":
-				entry[i] = d.resource.FolderParentID
+				entry[i] = d.Resource.FolderParentID
 			case "name":
-				entry[i] = shellescape.StripUnsafe(d.name)
+				entry[i] = shellescape.StripUnsafe(d.Name)
 			case "username":
-				entry[i] = shellescape.StripUnsafe(d.username)
+				entry[i] = shellescape.StripUnsafe(d.Username)
 			case "uri":
-				entry[i] = shellescape.StripUnsafe(d.uri)
+				entry[i] = shellescape.StripUnsafe(d.URI)
 			case "password":
-				entry[i] = shellescape.StripUnsafe(d.password)
+				entry[i] = shellescape.StripUnsafe(d.Password)
 			case "description":
-				entry[i] = shellescape.StripUnsafe(d.description)
+				entry[i] = shellescape.StripUnsafe(d.Description)
 			case "createdtimestamp":
-				entry[i] = d.resource.Created.Format(time.RFC3339)
+				entry[i] = d.Resource.Created.Format(time.RFC3339)
 			case "modifiedtimestamp":
-				entry[i] = d.resource.Modified.Format(time.RFC3339)
+				entry[i] = d.Resource.Modified.Format(time.RFC3339)
 			default:
 				return fmt.Errorf("Unknown Column: %v", columns[i])
 			}

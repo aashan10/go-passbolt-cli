@@ -22,7 +22,7 @@ var CelEnvOptions = []cel.EnvOption{
 }
 
 // filterDecryptedResources filters already-decrypted resources by evaluating a CEL expression.
-func filterDecryptedResources(resources []decryptedResource, celCmd string, ctx context.Context) ([]decryptedResource, error) {
+func filterDecryptedResources(resources []DecryptedResource, celCmd string, ctx context.Context) ([]DecryptedResource, error) {
 	if celCmd == "" {
 		return resources, nil
 	}
@@ -32,18 +32,18 @@ func filterDecryptedResources(resources []decryptedResource, celCmd string, ctx 
 		return nil, err
 	}
 
-	filtered := []decryptedResource{}
+	filtered := []DecryptedResource{}
 	for _, d := range resources {
 		val, _, err := (*program).ContextEval(ctx, map[string]any{
-			"ID":                d.resource.ID,
-			"FolderParentID":    d.resource.FolderParentID,
-			"Name":              d.name,
-			"Username":          d.username,
-			"URI":               d.uri,
-			"Password":          d.password,
-			"Description":       d.description,
-			"CreatedTimestamp":  d.resource.Created.Time,
-			"ModifiedTimestamp": d.resource.Modified.Time,
+			"ID":                d.Resource.ID,
+			"FolderParentID":    d.Resource.FolderParentID,
+			"Name":              d.Name,
+			"Username":          d.Username,
+			"URI":               d.URI,
+			"Password":          d.Password,
+			"Description":       d.Description,
+			"CreatedTimestamp":  d.Resource.Created.Time,
+			"ModifiedTimestamp": d.Resource.Modified.Time,
 		})
 
 		if err != nil {
